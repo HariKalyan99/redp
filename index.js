@@ -1,4 +1,4 @@
-import {createStore, applyMiddleware} from 'redux'
+import {createStore, applyMiddleware, combineReducers} from 'redux'
 import logger from 'redux-logger';
 import {thunk} from 'redux-thunk';
 import axios from 'axios';
@@ -12,7 +12,17 @@ const userAccFullfilled = 'account/userAccountFullfilled';
 const userAccPending = 'account/userAccountPending';
 const userAccRejected = 'account/userAccountRejected';
 
-const store = createStore(accountReducer, applyMiddleware(logger.default, thunk));
+
+const userBonusInc = 'bonus/increment';
+const userBonusDec = 'bonus/decrement';
+const userBonusPending = 'bonus/userBonusPending';
+const userBonusFullfilled = 'bonus/userBonusFullfilled';
+const userBonusRejected = 'bonus/userBonusRejected';
+
+const store = createStore(combineReducers({
+    account: accountReducer,
+    bonus: bonusReducer
+}) , applyMiddleware(logger.default, thunk));
 
 function accountReducer(state={amount: 1}, action){
     switch(action.type){
@@ -35,6 +45,26 @@ function accountReducer(state={amount: 1}, action){
     }
 }
 
+
+//bonus
+
+
+function bonusReducer(state={points: 0}, action) {
+    switch(action.type){
+        case userBonusInc:
+            return {points: state.points + 1}
+        case userBonusDec:
+            return {points: state.points - 1}
+        case userBonusPending:
+            return {...state, pending: true}
+        case userBonusFullfilled:
+            return {points: action.payload, pending: false}
+        case userBonusRejected:
+            return {...state, error: action.error, pending: false}
+        default:
+            return state;
+    }
+}
 
 // console.log(store.getState())
 
@@ -82,6 +112,39 @@ function accDecByAmt(val){
 }
 
 
+function bonInc() {
+    return {type: userBonusInc}
+}
+
+function bonDec(){
+    return {type: userBonusDec}
+}
+
+function getUserBonus(id){
+    return async (dispatch, getState) => {
+        try{
+            dispatch(getUserBonusPending());
+            const {data} = await axios.get(`http://localhost:8081/bonus/${id}`);
+            dispatch(getUserBonusFulfilled(data.points));
+        }catch(error){
+            dispatch(getUserBonusRejected(error.message));
+        }
+    }
+}
+
+function getUserBonusFulfilled(points){
+    return {type: userBonusFullfilled, payload: points}
+}
+
+function getUserBonusRejected(error){
+    return {type: userBonusRejected, error}
+}
+
+
+function getUserBonusPending(){
+    return {type: userBonusPending}
+}
+
 setTimeout(() => {
-    store.dispatch(getUserAccount(1))
+    store.dispatch(getUserBonus(1))
 })
